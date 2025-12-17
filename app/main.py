@@ -6,25 +6,45 @@ from sqlalchemy.orm import Session
 from . import models, database
 from datetime import datetime, timedelta
 
-
+# Initialize Database
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
 templates = Jinja2Templates(directory="frontend")
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
-
+# --- AUTH ROUTES ---
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    # Check for error messages in query params
+    error = request.query_params.get("error")
+    return templates.TemplateResponse("index.html", {"request": request, "error": error})
 
-@app.post("/auth")
-async def auth(email: str = Form(...), password: str = Form(...), db: Session = Depends(database.get_db)):
+@app.post("/login")
+async def login(email: str = Form(...), password: str = Form(...), db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.email == email).first()
-    if not user:
-        user = models.User(email=email, password_hash=password)
-        db.add(user)
-        db.commit()
+    
+    # Check if user exists AND password matches
+    if not user or user.password_hash != password:
+        return RedirectResponse(url="/?error=Invalid Credentials", status_code=303)
+    
+    response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie(key="user_email", value=email)
+    return response
+
+@app.post("/register")
+async def register(email: str = Form(...), password: str = Form(...), db: Session = Depends(database.get_db)):
+    user = db.query(models.User).filter(models.User.email == email).first()
+    
+    # Check if user already exists
+    if user:
+        return RedirectResponse(url="/?error=Email already registered", status_code=303)
+    
+    # Create new user
+    new_user = models.User(email=email, password_hash=password)
+    db.add(new_user)
+    db.commit()
+    
     response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie(key="user_email", value=email)
     return response
@@ -35,7 +55,7 @@ async def logout():
     response.delete_cookie("user_email")
     return response
 
-
+# --- DASHBOARD & ROUTES ---
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(database.get_db)):
     user_email = request.cookies.get("user_email")
@@ -46,9 +66,7 @@ async def dashboard(request: Request, db: Session = Depends(database.get_db)):
 
     tasks = db.query(models.Task).filter(models.Task.owner_id == user.id).order_by(models.Task.due_date.asc()).all()
     
-    
     today = datetime.now().date()
-   
     upcoming_tasks = [t for t in tasks if t.due_date and t.due_date.date() > today and t.status != "Completed"][:3]
 
     stats = {
@@ -98,20 +116,16 @@ async def settings(request: Request, db: Session = Depends(database.get_db)):
     user_email = request.cookies.get("user_email")
     if not user_email: return RedirectResponse(url="/")
     user = db.query(models.User).filter(models.User.email == user_email).first()
-    
     return templates.TemplateResponse("settings.html", {"request": request, "user": user})
 
+# --- ACTIONS ---
 @app.post("/tasks/add")
 async def add_task(request: Request, title: str = Form(...), due_date: str = Form(...), db: Session = Depends(database.get_db)):
     user_email = request.cookies.get("user_email")
     if not user_email: return RedirectResponse(url="/")
 
     user = db.query(models.User).filter(models.User.email == user_email).first()
-    if not user:
-        user = models.User(email=user_email, password_hash="auto_created")
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+    if not user: return RedirectResponse(url="/") # Strict check now
     
     try:
         dt_obj = datetime.strptime(due_date, "%Y-%m-%d")
@@ -132,7 +146,6 @@ async def complete_task(request: Request, task_id: int, db: Session = Depends(da
     if task:
         task.status = "Completed"
         db.commit()
-    
     referer = request.headers.get("referer")
     if referer and "schedule" in referer: return RedirectResponse(url="/schedule", status_code=303)
     return RedirectResponse(url="/dashboard", status_code=303)
@@ -143,7 +156,6 @@ async def delete_task(request: Request, task_id: int, db: Session = Depends(data
     if task:
         db.delete(task)
         db.commit()
-    
     referer = request.headers.get("referer")
     if referer and "schedule" in referer: return RedirectResponse(url="/schedule", status_code=303)
     return RedirectResponse(url="/dashboard", status_code=303)
