@@ -44,7 +44,6 @@
             <p class="text-slate-600 dark:text-slate-400">Manage all users and their tasks</p>
         </header>
 
-        <!-- Admin Password Verification Modal -->
         <div id="adminModal" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4">
             <div class="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-md shadow-2xl">
                 <div class="flex items-center justify-center mb-6">
@@ -65,12 +64,9 @@
             </div>
         </div>
 
-        <!-- Main Admin Content (hidden until verified) -->
         <div id="adminContent" class="hidden">
 
-        <!-- User Selection and Task Search Section -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <!-- User Dropdown Section -->
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
                 <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Select User</label>
                 <select id="userDropdown" onchange="loadUserTasks(this.value)" class="w-full p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-red-500">
@@ -78,14 +74,12 @@
                 </select>
             </div>
 
-            <!-- Task Search Section -->
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
                 <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Search Tasks</label>
                 <input type="text" id="taskSearch" placeholder="Search by task name..." class="w-full p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-red-500" onkeyup="filterTasks()">
             </div>
         </div>
 
-        <!-- User Tasks Section -->
         <div id="tasksContainer" class="hidden">
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                 <div class="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800">
@@ -93,26 +87,23 @@
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Total Tasks: <span id="taskCount" class="font-bold">0</span></p>
                 </div>
                 <div id="tasksList" class="divide-y divide-slate-100 dark:divide-slate-700">
-                    <!-- Tasks will be loaded here -->
                 </div>
             </div>
         </div>
 
-        <!-- No Selection Message -->
         <div id="noSelectionMessage" class="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center">
             <div class="flex justify-center mb-4">
                 <i data-lucide="inbox" class="w-12 h-12 text-slate-400"></i>
             </div>
             <p class="text-slate-600 dark:text-slate-400 font-medium">Select a user from the dropdown to view their tasks</p>
         </div>
-        </div><!-- End of adminContent -->
+        </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest"></script>
     <script>
         lucide.createIcons();
 
-        // Admin Password Verification
         document.getElementById('adminPasswordForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const password = document.getElementById('adminPassword').value;
@@ -130,14 +121,11 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Password verified - hide modal and show content
                     document.getElementById('adminModal').classList.add('hidden');
                     document.getElementById('adminContent').classList.remove('hidden');
                     errorMsg.classList.add('hidden');
-                    // Load users with task statistics
                     loadUsersWithStats();
                 } else {
-                    // Show error message
                     errorMsg.textContent = 'Invalid admin password. Please try again.';
                     errorMsg.classList.remove('hidden');
                     document.getElementById('adminPassword').value = '';

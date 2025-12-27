@@ -6,22 +6,17 @@ from sqlalchemy.orm import Session
 from . import models, database
 from datetime import datetime, timedelta
 
-# Initialize Database
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
 templates = Jinja2Templates(directory="frontend")
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
-# ===== ADMIN CREDENTIALS =====
 ADMIN_EMAIL = "admin@tasktracker.com"
 ADMIN_PASSWORD = "admin123"
-# ===== CHANGE THESE TO YOUR DESIRED ADMIN EMAIL AND PASSWORD =====
 
-# --- AUTH ROUTES ---
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
-    # Check for error messages in query params
     error = request.query_params.get("error")
     return templates.TemplateResponse("index.html", {"request": request, "error": error})
 
@@ -29,11 +24,9 @@ async def login_page(request: Request):
 async def login(email: str = Form(...), password: str = Form(...), db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.email == email).first()
     
-    # Check if user exists AND password matches
     if not user or user.password_hash != password:
         return RedirectResponse(url="/?error=Invalid Credentials", status_code=303)
     
-    # Check if user is admin
     if email == ADMIN_EMAIL:
         response = RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
     else:
@@ -46,11 +39,9 @@ async def login(email: str = Form(...), password: str = Form(...), db: Session =
 async def register(email: str = Form(...), password: str = Form(...), db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.email == email).first()
     
-    # Check if user already exists
     if user:
         return RedirectResponse(url="/?error=Email already registered", status_code=303)
     
-    # Create new user
     new_user = models.User(email=email, password_hash=password)
     db.add(new_user)
     db.commit()
@@ -65,7 +56,6 @@ async def logout():
     response.delete_cookie("user_email")
     return response
 
-# --- DASHBOARD & ROUTES ---
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(database.get_db)):
     user_email = request.cookies.get("user_email")
@@ -136,22 +126,19 @@ async def admin_dashboard(request: Request, db: Session = Depends(database.get_d
     user = db.query(models.User).filter(models.User.email == user_email).first()
     if not user: return RedirectResponse(url="/")
     
-    # Check if user is admin
     if user.email != ADMIN_EMAIL:
         return RedirectResponse(url="/dashboard?error=Access Denied: You are not authorized to access the admin panel", status_code=303)
     
-    # Get all users
     users = db.query(models.User).all()
     return templates.TemplateResponse("admin.html", {"request": request, "user": user, "users": users})
 
-# --- ACTIONS ---
 @app.post("/tasks/add")
 async def add_task(request: Request, title: str = Form(...), due_date: str = Form(...), db: Session = Depends(database.get_db)):
     user_email = request.cookies.get("user_email")
     if not user_email: return RedirectResponse(url="/")
 
     user = db.query(models.User).filter(models.User.email == user_email).first()
-    if not user: return RedirectResponse(url="/") # Strict check now
+    if not user: return RedirectResponse(url="/")
     
     try:
         dt_obj = datetime.strptime(due_date, "%Y-%m-%d")
@@ -185,7 +172,7 @@ async def delete_task(request: Request, task_id: int, db: Session = Depends(data
     referer = request.headers.get("referer")
     if referer and "schedule" in referer: return RedirectResponse(url="/schedule", status_code=303)
     return RedirectResponse(url="/dashboard", status_code=303)
-# --- ADMIN API ROUTES ---
+
 @app.get("/admin/api/users-with-stats")
 async def get_users_with_stats(db: Session = Depends(database.get_db)):
     users = db.query(models.User).all()
@@ -221,7 +208,6 @@ async def get_user_tasks(user_id: int, db: Session = Depends(database.get_db)):
     
     tasks = db.query(models.Task).filter(models.Task.owner_id == user_id).order_by(models.Task.due_date.asc()).all()
     
-    # Convert tasks to dict format
     tasks_data = [
         {
             "id": task.id,
